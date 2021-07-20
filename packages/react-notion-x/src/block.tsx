@@ -14,7 +14,6 @@ import { Checkbox } from './components/checkbox'
 import { PageIcon } from './components/page-icon'
 import { PageTitle } from './components/page-title'
 import { LinkIcon } from './icons/link-icon'
-import { PageHeader } from './components/page-header'
 import { GoogleDrive } from './components/google-drive'
 import { Audio } from './components/audio'
 import { File } from './components/file'
@@ -22,13 +21,15 @@ import { Equation } from './components/equation'
 import { GracefulImage } from './components/graceful-image'
 import { LazyImage } from './components/lazy-image'
 import { useNotionContext } from './context'
-import { cs, getListNumber, isUrl } from './utils'
+import { cs, getListNumber } from './utils'
 import { Text } from './components/text'
 import { SyncPointerBlock } from './components/sync-pointer-block'
 
 interface BlockProps {
   block: types.Block
   level: number
+
+  renderers?: { [key: string]: React.Component; }
 
   className?: string
   bodyClassName?: string
@@ -46,7 +47,7 @@ const tocIndentLevelCache: {
   [blockId: string]: number
 } = {}
 
-export const Block: React.FC<BlockProps> = (props) => {
+const DefaultBlockComponent = (props) => {
   const {
     components,
     fullPage,
@@ -62,32 +63,16 @@ export const Block: React.FC<BlockProps> = (props) => {
   } = useNotionContext()
 
   const {
+    blockId,
     block,
     children,
     level,
     className,
-    bodyClassName,
     footer,
-    pageHeader,
     pageFooter,
     pageAside,
     pageCover,
-    hideBlockId
   } = props
-
-  if (!block) {
-    return null
-  }
-
-  // ugly hack to make viewing raw collection views work properly
-  // e.g., 6d886ca87ab94c21a16e3b82b43a57fb
-  if (level === 0 && block.type === 'collection_view') {
-    ;(block as any).type = 'collection_view_page'
-  }
-
-  const blockId = hideBlockId
-    ? 'notion-block'
-    : `notion-block-${uuidToId(block.id)}`
 
   switch (block.type) {
     case 'collection_view_page':
@@ -95,7 +80,6 @@ export const Block: React.FC<BlockProps> = (props) => {
     case 'page':
       if (level === 0) {
         const {
-          page_icon = defaultPageIcon,
           page_cover = defaultPageCover,
           page_cover_position = defaultPageCoverPosition,
           page_full_width,
@@ -113,7 +97,6 @@ export const Block: React.FC<BlockProps> = (props) => {
           const coverPosition = (1 - (page_cover_position || 0.5)) * 100
 
           const pageIcon = getBlockIcon(block, recordMap) ?? defaultPageIcon
-          const isPageIconUrl = pageIcon && isUrl(pageIcon)
 
           const toc = getPageTableOfContents(recordMap)
 
@@ -184,11 +167,7 @@ export const Block: React.FC<BlockProps> = (props) => {
                 className
               )}
             >
-              <div className='notion-viewport' />
-
               <div className='notion-frame'>
-                <PageHeader />
-
                 <div className='notion-page-scroller'>
                   {hasPageCover ? (
                     pageCover ? (
@@ -205,36 +184,7 @@ export const Block: React.FC<BlockProps> = (props) => {
                     )
                   ) : null}
 
-                  <main
-                    className={cs(
-                      'notion-page',
-                      hasPageCover
-                        ? 'notion-page-has-cover'
-                        : 'notion-page-no-cover',
-                      page_icon
-                        ? 'notion-page-has-icon'
-                        : 'notion-page-no-icon',
-                      isPageIconUrl
-                        ? 'notion-page-has-image-icon'
-                        : 'notion-page-has-text-icon',
-                      'notion-full-page',
-                      page_full_width && 'notion-full-width',
-                      page_small_text && 'notion-small-text',
-                      bodyClassName
-                    )}
-                  >
-                    {page_icon && (
-                      <div className='notion-page-icon-wrapper'>
-                        <PageIcon block={block} defaultIcon={defaultPageIcon} />
-                      </div>
-                    )}
-
-                    {pageHeader}
-
-                    <div className='notion-title'>
-                      <Text value={properties?.title} block={block} />
-                    </div>
-
+                  <main>
                     {block.type === 'page' &&
                       block.parent_table === 'collection' && (
                         <components.collectionRow block={block} />
@@ -314,21 +264,7 @@ export const Block: React.FC<BlockProps> = (props) => {
           )
         } else {
           return (
-            <main
-              className={cs(
-                'notion',
-                darkMode ? 'dark-mode' : 'light-mode',
-                'notion-page',
-                page_full_width && 'notion-full-width',
-                page_small_text && 'notion-small-text',
-                blockId,
-                className,
-                bodyClassName
-              )}
-            >
-              <div className='notion-viewport' />
-
-              {pageHeader}
+            <main>
 
               {block.type === 'page' && block.parent_table === 'collection' && (
                 <components.collectionRow block={block} />
@@ -800,6 +736,41 @@ export const Block: React.FC<BlockProps> = (props) => {
 
       return <div />
   }
+}
+
+export const Block: React.FC<BlockProps> = (props) => {
+  const {
+    block,
+    renderers,
+    level,
+    hideBlockId
+  } = props
+
+  if (!block) {
+    return null
+  }
+
+  // ugly hack to make viewing raw collection views work properly
+  // e.g., 6d886ca87ab94c21a16e3b82b43a57fb
+  if (level === 0 && block.type === 'collection_view') {
+    ;(block as any).type = 'collection_view_page'
+  }
+
+  const blockId = hideBlockId
+    ? 'notion-block'
+    : `notion-block-${uuidToId(block.id)}`
+
+  if (renderers && renderers[block.type]) {
+    const BlockComponent = renderers[block.type];
+
+    return (
+      <BlockComponent blockId={blockId} DefaultBlockComponent={DefaultBlockComponent} {...props} />
+    )
+  }
+
+  return (
+    <DefaultBlockComponent blockId={blockId} {...props} />
+  )
 
   return null
 }

@@ -14,6 +14,7 @@ import { useNotionContext, NotionContextProvider } from './context'
 export interface NotionRendererProps {
   recordMap: ExtendedRecordMap
   components?: Partial<NotionComponents>
+  renderers?: { [key: string]: React.Component; }
 
   mapPageUrl?: MapPageUrl
   mapImageUrl?: MapImageUrl

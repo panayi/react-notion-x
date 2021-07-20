@@ -1,5 +1,5 @@
 {
-  "name": "react-notion-x",
+  "name": "@gistcast/react-notion",
   "version": "4.7.9",
   "description": "Fast and accurate React renderer for Notion.",
   "repository": "NotionX/react-notion-x",
